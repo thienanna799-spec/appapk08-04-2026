@@ -1,0 +1,6 @@
+{
+  "name": "DriverGo",
+  "description": "Ứng dụng quản lý giao hàng chuyên nghiệp dành cho tài xế với tính năng theo dõi GPS, báo cáo công việc và quản lý đơn hàng.",
+  "requestFramePermissions": ["camera", "geolocation"],
+  "majorCapabilities": []
+}

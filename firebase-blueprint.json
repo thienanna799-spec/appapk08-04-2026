@@ -1,0 +1,109 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Thông tin tài xế",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "name": { "type": "string" },
+        "role": { "type": "string", "enum": ["driver", "admin"] },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email", "role"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Thông tin đơn hàng",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customer": { "type": "string" },
+        "address": { "type": "string" },
+        "quantity": { "type": "number" },
+        "deadline": { "type": "string" },
+        "notes": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "shipping", "completed", "cancelled"] },
+        "driverId": { "type": "string" },
+        "photoWarehouse": { "type": "string" },
+        "photoDelivery": { "type": "string" },
+        "photoSignature": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "completeTime": { "type": "string", "format": "date-time" },
+        "startGps": { "type": "object" },
+        "completeGps": { "type": "object" }
+      },
+      "required": ["id", "customer", "status"]
+    },
+    "GPSLog": {
+      "title": "GPSLog",
+      "description": "Nhật ký vị trí GPS",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string" },
+        "orderId": { "type": "string" },
+        "lat": { "type": "number" },
+        "lng": { "type": "number" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "isWorking": { "type": "boolean" }
+      },
+      "required": ["driverId", "lat", "lng", "timestamp"]
+    },
+    "WorkSession": {
+      "title": "WorkSession",
+      "description": "Phiên làm việc (Check-in/out)",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string" },
+        "checkInTime": { "type": "string", "format": "date-time" },
+        "checkOutTime": { "type": "string", "format": "date-time" },
+        "kmStart": { "type": "number" },
+        "kmEnd": { "type": "number" },
+        "photoVehicle": { "type": "string" },
+        "photoOdometerStart": { "type": "string" },
+        "photoOdometerEnd": { "type": "string" },
+        "checkInGps": { "type": "object" },
+        "checkOutGps": { "type": "object" }
+      },
+      "required": ["driverId", "checkInTime"]
+    },
+    "FuelLog": {
+      "title": "FuelLog",
+      "description": "Nhật ký đổ xăng",
+      "type": "object",
+      "properties": {
+        "driverId": { "type": "string" },
+        "amount": { "type": "number" },
+        "photoPrice": { "type": "string" },
+        "video": { "type": "string" },
+        "gps": { "type": "object" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["driverId", "amount", "timestamp"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": "User",
+      "description": "Profile thông tin người dùng"
+    },
+    "orders/{orderId}": {
+      "schema": "Order",
+      "description": "Danh sách đơn hàng"
+    },
+    "gps_logs/{logId}": {
+      "schema": "GPSLog",
+      "description": "Nhật ký vị trí tài xế"
+    },
+    "sessions/{sessionId}": {
+      "schema": "WorkSession",
+      "description": "Lịch sử làm việc"
+    },
+    "fuel_logs/{logId}": {
+      "schema": "FuelLog",
+      "description": "Lịch sử đổ xăng"
+    }
+  }
+}

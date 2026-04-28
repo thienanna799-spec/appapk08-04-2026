@@ -1,0 +1,70 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isSuperAdmin() {
+      return isAuthenticated() && "email" in request.auth.token && request.auth.token.email == "bachsydonggiphn@gmail.com";
+    }
+
+    function isDbAdmin() {
+      return isAuthenticated() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    function isAdmin() {
+      return isSuperAdmin() || isDbAdmin();
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Validator Functions
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email', 'role']) &&
+             data.uid is string &&
+             data.email is string &&
+             data.role in ['driver', 'admin'];
+    }
+
+    function isValidLog(data) {
+      return data.keys().hasAll(['driverId']) &&
+             data.driverId is string;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isSuperAdmin();
+      allow create: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin());
+      allow update: if isAuthenticated() && isValidUser(request.resource.data) && (isOwner(userId) || isAdmin()) &&
+                    request.resource.data.role == resource.data.role; // Prevent self-elevation
+    }
+
+    match /orders/{orderId} {
+      // Use isSuperAdmin for reads to prevent get() eval errors in list queries
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.status == 'pending' || resource.data.driverId == request.auth.uid);
+      allow create: if isAdmin();
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.driverId == request.auth.uid || resource.data.status == 'pending');
+    }
+
+    match /gps_logs/{logId} {
+      allow create: if isAuthenticated() && request.resource.data.driverId == request.auth.uid && isValidLog(request.resource.data);
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.driverId == request.auth.uid);
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.driverId == request.auth.uid);
+      allow create: if isAuthenticated() && request.resource.data.driverId == request.auth.uid && isValidLog(request.resource.data);
+      allow update: if isAuthenticated() && (isAdmin() || resource.data.driverId == request.auth.uid);
+    }
+
+    match /fuel_logs/{logId} {
+      allow create: if isAuthenticated() && request.resource.data.driverId == request.auth.uid && isValidLog(request.resource.data);
+      allow read: if isAuthenticated() && (isSuperAdmin() || resource.data.driverId == request.auth.uid);
+    }
+  }
+}
