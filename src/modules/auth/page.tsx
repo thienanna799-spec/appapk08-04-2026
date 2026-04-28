@@ -34,9 +34,9 @@ export default function LoginPage() {
         body: JSON.stringify({ photoURL: user.photoURL }),
       });
       toast.success('Chào mừng trở lại!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Auth verify error:', error);
-      toast.error('Lỗi xác thực. Vui lòng thử lại.');
+      toast.error('Lỗi xác thực: ' + (error?.message || 'Unknown'));
       await auth.signOut();
     }
   };

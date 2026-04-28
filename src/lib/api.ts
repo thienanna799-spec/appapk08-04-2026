@@ -55,8 +55,8 @@ export const api = {
       }
 
       if (!response.ok) {
-        const error = await response.json().catch(() => ({ message: 'API request failed' }));
-        throw new Error(error.message || 'API request failed');
+        const error = await response.json().catch(() => ({ message: `HTTP ${response.status}` }));
+        throw new Error(error.message || `HTTP ${response.status}`);
       }
 
       return response.json();

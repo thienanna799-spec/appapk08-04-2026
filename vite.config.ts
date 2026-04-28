@@ -18,6 +18,8 @@ export default defineConfig(({mode}) => {
     },
     server: {
       port: 4000,
+      host: '0.0.0.0',
+      allowedHosts: ['driver.gepoder.click'],
       hmr: process.env.DISABLE_HMR !== 'true',
       proxy: {
         '/api': {

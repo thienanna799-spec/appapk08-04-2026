@@ -17,6 +17,37 @@ async function startServer() {
   const app = express();
   const PORT = Number(process.env.PORT) || 5000;
 
+  // GEP API base URL — the main order management system
+  const GEP_API = process.env.GEP_API_URL || 'https://gepoder.click/api';
+
+  // Proxy helper: forward request to GEP API with the same Firebase token
+  async function proxyToGEP(req: any, gepEndpoint: string, method = 'GET', body?: any) {
+    const authHeader = req.headers['authorization'] || '';
+    const headers: Record<string, string> = {
+      'Authorization': authHeader,
+      'Content-Type': 'application/json',
+    };
+
+    const url = `${GEP_API}${gepEndpoint}`;
+    console.log(`🔄 Proxy → ${method} ${url}`);
+
+    const resp = await fetch(url, {
+      method,
+      headers,
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+
+    const data = await resp.json().catch(() => null);
+
+    if (!resp.ok) {
+      const msg = data?.error?.message || data?.message || `GEP returned ${resp.status}`;
+      throw { status: resp.status, message: msg };
+    }
+
+    // GEP wraps response in { success, data } — unwrap it
+    return data?.data !== undefined ? data.data : data;
+  }
+
   app.use(cors({
     origin: '*',
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -170,51 +201,70 @@ async function startServer() {
     }
   });
 
-  // ==================== ORDERS ====================
+  // ==================== ORDERS (Proxy to GEP API) ====================
+  // GET list of orders assigned to driver (status = dang_giao)
   app.get("/api/driver/orders", authenticateToken, async (req: any, res) => {
     try {
-      const driverId = req.user.uid;
-      const [rows] = await db.execute(
-        `SELECT * FROM orders WHERE status = 'pending' OR driverId = ? ORDER BY createdAt DESC`,
-        [driverId]
-      );
-      res.json(rows);
-    } catch (error) {
-      console.error('Get orders error:', error);
-      res.status(500).json({ message: 'Server error' });
+      const data = await proxyToGEP(req, '/orders?status=dang_giao');
+      res.json(data);
+    } catch (error: any) {
+      console.error('Get orders (GEP) error:', error);
+      res.status(error.status || 500).json({ message: error.message || 'Failed to fetch orders from GEP' });
     }
   });
 
-  app.post("/api/driver/orders/:id/start", authenticateToken, async (req: any, res) => {
+  // GET order detail
+  app.get("/api/driver/orders/:id", authenticateToken, async (req: any, res) => {
     try {
-      const orderId = req.params.id;
-      const driverId = req.user.uid;
-      const { lat, lng } = req.body;
-
-      await db.execute(
-        `UPDATE orders SET status = 'shipping', driverId = ?, pickupLat = ?, pickupLng = ?, startTime = NOW(), updatedAt = NOW() WHERE id = ?`,
-        [driverId, lat, lng, orderId]
-      );
-      res.json({ status: "ok" });
-    } catch (error) {
-      console.error('Start order error:', error);
-      res.status(500).json({ message: 'Server error' });
+      const data = await proxyToGEP(req, `/orders/${req.params.id}`);
+      res.json(data);
+    } catch (error: any) {
+      console.error('Get order detail (GEP) error:', error);
+      res.status(error.status || 500).json({ message: error.message || 'Failed to fetch order detail' });
     }
   });
 
+  // GET order items (product list)
+  app.get("/api/driver/orders/:id/items", authenticateToken, async (req: any, res) => {
+    try {
+      const data = await proxyToGEP(req, `/orders/${req.params.id}/items`);
+      res.json(data);
+    } catch (error: any) {
+      console.error('Get order items (GEP) error:', error);
+      res.status(error.status || 500).json({ message: error.message || 'Failed to fetch order items' });
+    }
+  });
+
+  // POST upload delivery proof (photo/video)
+  app.post("/api/driver/orders/:id/proof", authenticateToken, async (req: any, res) => {
+    try {
+      const data = await proxyToGEP(req, `/orders/${req.params.id}/delivery-proofs`, 'POST', req.body);
+      res.json(data);
+    } catch (error: any) {
+      console.error('Upload proof (GEP) error:', error);
+      res.status(error.status || 500).json({ message: error.message || 'Failed to upload proof' });
+    }
+  });
+
+  // POST complete delivery
   app.post("/api/driver/orders/:id/complete", authenticateToken, async (req: any, res) => {
     try {
-      const orderId = req.params.id;
-      const { lat, lng } = req.body;
+      const data = await proxyToGEP(req, `/orders/${req.params.id}/complete-delivery`, 'POST', req.body);
+      res.json(data);
+    } catch (error: any) {
+      console.error('Complete delivery (GEP) error:', error);
+      res.status(error.status || 500).json({ message: error.message || 'Failed to complete delivery' });
+    }
+  });
 
-      await db.execute(
-        `UPDATE orders SET status = 'completed', deliveryLat = ?, deliveryLng = ?, completeTime = NOW(), updatedAt = NOW() WHERE id = ?`,
-        [lat, lng, orderId]
-      );
-      res.json({ status: "ok" });
-    } catch (error) {
-      console.error('Complete order error:', error);
-      res.status(500).json({ message: 'Server error' });
+  // POST fail delivery
+  app.post("/api/driver/orders/:id/fail", authenticateToken, async (req: any, res) => {
+    try {
+      const data = await proxyToGEP(req, `/orders/${req.params.id}/fail-delivery`, 'POST', req.body);
+      res.json(data);
+    } catch (error: any) {
+      console.error('Fail delivery (GEP) error:', error);
+      res.status(error.status || 500).json({ message: error.message || 'Failed to report delivery failure' });
     }
   });
 
