@@ -7,7 +7,7 @@ import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { auth, googleProvider } from '@/lib/firebase';
 import { signInWithPopup, signInWithRedirect, getRedirectResult } from 'firebase/auth';
-import { api } from '@/lib/api';
+import { api, gepApi } from '@/lib/api';
 import { Capacitor } from '@capacitor/core';
 
 export default function LoginPage() {
@@ -28,14 +28,22 @@ export default function LoginPage() {
 
   const handleUserAfterAuth = async (user: any) => {
     try {
-      // Verify user via backend API (MySQL) — replaces Firestore getDoc/setDoc
+      // 1. Get Firebase ID token
+      const idToken = await user.getIdToken();
+      
+      // 2. Login to GEP system → creates driver account + returns JWT
+      const gepResult = await gepApi.login(idToken);
+      console.log('GEP login success:', gepResult.user?.email);
+
+      // 3. Also verify on local DriverGo backend (for sessions/fuel/GPS)
       await api.request('/auth/verify', {
         method: 'POST',
         body: JSON.stringify({ photoURL: user.photoURL }),
-      });
+      }).catch(() => {}); // Non-critical — GEP is primary
+
       toast.success('Chào mừng trở lại!');
     } catch (error: any) {
-      console.error('Auth verify error:', error);
+      console.error('Auth error:', error);
       toast.error('Lỗi xác thực: ' + (error?.message || 'Unknown'));
       await auth.signOut();
     }
